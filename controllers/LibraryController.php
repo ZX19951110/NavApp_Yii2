@@ -12,15 +12,30 @@ use yii\db\Exception;
 use yii\db\IntegrityException;
 use yii\web\Controller;
 use app\models\Library;
+use yii\data\Pagination;
 class LibraryController extends Controller{
     public function actionList(){
         /*todo:
         add token identify
         */
-        return json_encode(Library::find()->asArray()->all());
+        $page = Yii::$app->request->get('page');
+        $total = Library::find()->count();
+        $pagination = new Pagination(['totalCount' => $total, 'pageSize' => 4, 'page' => $page-1]);
+        $pageData = Library::find()->offset($pagination->offset)->limit($pagination->limit)->asArray()->all();
+        return json_encode(['status'=>0,'data' =>['list'=> $pageData, 'total' => $pagination->pageCount, 'page' => $page]]);
     }
     public function actionCreate(){
         $reqArr = Yii::$app->request->post();
+        foreach ($reqArr as $key=>$value){
+            if ($value == ''){
+                return json_encode(['status'=>1,'statusInfo'=>'empty item is not allowed,please check']);
+            }
+            if ($key == 'latitude' || $key == 'longitude' ){
+                if (!(float)$value){
+                    return json_encode(['status'=>1,'statusInfo'=>'some item should be float,please check']);
+                }
+            }
+        }
         $name = $reqArr['name']?$reqArr['name']:'blank';
         $codice_biblioteca = $reqArr['codice_biblioteca']?$reqArr['codice_biblioteca']:'blank';
         $email = $reqArr['email']?$reqArr['email']:'blank';
@@ -40,23 +55,18 @@ class LibraryController extends Controller{
         $library->telephone = $telephone;
         $library->ia_id = $ia_id;
         $library->address = $address;
-        //$sql = "insert into library values ($ia_id,$id,$latitude,$longitude,$name,$telephone,$email,$codice_biblioteca,$address)";
-        /*if ($library->save()){
+        /*$sql = "insert into library values ($ia_id,$id,$latitude,$longitude,$name,$telephone,$email,$codice_biblioteca,$address)";
+        if ($library->save()){
             return json_encode(['status'=>0,'message'=>'create success']);
         }*/
         try{
             $library->save();
-            return json_encode(['status'=>0,'message'=>'create success']);
+            return json_encode(['status'=>0,'data'=>'create success']);
         }catch (IntegrityException $exception){
-            return json_encode(['status'=>1,'message'=>'Duplicate Primary Key']);
+            return json_encode(['status'=>1,'statusInfo'=>'Duplicate Primary Key']);
         }catch (Exception $exception){
-            return json_encode(['status'=>1,'message'=>'database connect error!']);
+            return json_encode(['status'=>1,'statusInfo'=>'database connect error!']);
         }
 
-    }
-    public function actionSearch(){
-        $name = Yii::$app->request->get('name');
-        $target = Library::find()->where(['name'=>$name])->asArray()->all();
-        return json_encode($target);
     }
 }
